@@ -1,0 +1,91 @@
+name: gamesync
+
+artifactStorePath: .forge/artifact-store.yaml
+
+# Single deliverable: GameSync.exe, a windowed egui/eframe GUI app. No CLI
+# binary is shipped. forge v0.43.0 ships no native Rust build/test engines
+# beyond license-header, so every other stage wraps the cargo toolchain
+# through generic-builder / generic-test-runner.
+build:
+  # License headers before formatting, formatting before everything else,
+  # so lint never fails on hygiene an earlier build stage could have fixed.
+  - name: license-headers
+    src: ./src
+    engine: go://rust-license-header
+    spec:
+      holder: "Alexandre Mahdhaoui"
+
+  - name: format-code
+    src: .
+    engine: go://generic-builder
+    spec:
+      command: cargo
+      args: ["fmt", "--all"]
+
+  - name: gamesync-host
+    src: ./src
+    engine: go://generic-builder
+    spec:
+      command: cargo
+      args: ["build", "--release"]
+
+  # Windows cross-compile via the mingw-w64 gnu linker, then copied into the
+  # Windows test folder. cargo has no --out-dir on stable, hence the copy.
+  # windows_subsystem = "windows" on the bin means this opens a window with
+  # no console flash, and eframe/egui only ever get pulled in for this
+  # target (see Cargo.toml's [target.'cfg(windows)'.dependencies]).
+  # Smart App Control allows-by-hash and Rust builds aren't reproducible, so
+  # a build it already approved must never be overwritten (poe-wayfinder's
+  # deploy.sh pattern). GameSync.exe is the convenience name to double-click;
+  # GameSync-<hash>.exe is a permanent, never-overwritten copy per build, so
+  # an approved build always survives the next rebuild under a new name.
+  - name: gamesync-windows
+    src: ./src
+    engine: go://generic-builder
+    spec:
+      command: sh
+      args:
+        - -c
+        - >-
+          cargo build --release --target x86_64-pc-windows-gnu --bin GameSync &&
+          cp target/x86_64-pc-windows-gnu/release/GameSync.exe
+          /mnt/c/Users/alexa/Desktop/testbin/GameSync.exe &&
+          hash=$(md5sum target/x86_64-pc-windows-gnu/release/GameSync.exe | cut -c1-8) &&
+          cp target/x86_64-pc-windows-gnu/release/GameSync.exe
+          "/mnt/c/Users/alexa/Desktop/testbin/GameSync-$hash.exe"
+
+test:
+  - name: lint
+    runner: go://generic-test-runner
+    spec:
+      command: cargo
+      args: ["clippy", "-p", "gamesync", "--all-targets", "--", "-D", "warnings"]
+
+  - name: lint-windows
+    runner: go://generic-test-runner
+    spec:
+      command: cargo
+      args:
+        [
+          "clippy",
+          "--release",
+          "--target",
+          "x86_64-pc-windows-gnu",
+          "--bin",
+          "GameSync",
+          "--",
+          "-D",
+          "warnings",
+        ]
+
+  - name: format-check
+    runner: go://generic-test-runner
+    spec:
+      command: cargo
+      args: ["fmt", "--all", "--", "--check"]
+
+  - name: unit
+    runner: go://generic-test-runner
+    spec:
+      command: cargo
+      args: ["test", "-p", "gamesync"]

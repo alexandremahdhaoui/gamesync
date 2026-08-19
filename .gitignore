@@ -1,0 +1,4 @@
+target/
+/.forge/
+.envrc
+/tmp/

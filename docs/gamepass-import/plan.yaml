@@ -1,0 +1,42 @@
+feature: gamepass-import
+tasks:
+  - id: T1
+    title: repo scaffold (Cargo.toml, .envrc, forge.yaml, .gitignore, module skeleton)
+    status: VERIFIED
+    notes: "forge config validate, forge build, and forge test-all all pass; gamesync.exe cross-compiled and confirmed as real PE32+ at testbin"
+  - id: T2
+    title: types + util::pngutil (IHDR width/height/alpha parser)
+    status: VERIFIED
+    notes: "PNG IHDR + baseline JPEG SOF0 dimension parsing, unit tested"
+  - id: T3
+    title: xboxgames_adapter (manifest scan, Application-element detection)
+    status: VERIFIED
+    notes: "unit tested; e2e run against the real C:\\XboxGames correctly found Call of Duty and Frostpunk 2, correctly excluded the 3 DLC stubs and GameSave"
+  - id: T4
+    title: artwork_adapter (candidate walk, junk-path exclusion, per-slot scoring input)
+    status: VERIFIED
+    notes: "unit tested; e2e run against real game folders picked sensible defaults per slot"
+  - id: T5
+    title: state_adapter (import-state.json read/write)
+    status: VERIFIED
+    notes: "unit tested; e2e run correctly seeded Forza Horizon 6 and Persona 5 Royal as already-imported from the existing shortcuts.vdf on first run"
+  - id: T6
+    title: steam_adapter (binary VDF codec, steam-running detection, backup, grid-file placement)
+    status: VERIFIED
+    notes: "BUG FOUND AND FIXED by e2e testing against a copy of the real shortcuts.vdf: the root object also ends with its own closing 0x08, which the original implementation didn't expect. Fixed, locked in with a regression test, and confirmed by re-parsing the written scratch file: both original entries preserved byte-for-byte, both new entries structurally correct, all 1735 bytes consumed cleanly. long_id formula for grid filenames also confirmed correct against the actual files written."
+  - id: T7
+    title: import_controller (orchestration, artwork ranking, dedupe, appid generation)
+    status: VERIFIED
+    notes: "unit tested with mocked adapters; e2e run confirmed correct scan/filter/dedupe/appid-uniqueness behavior"
+  - id: T8
+    title: cli_driver (business-logic-level e2e verification only, not a shipped binary)
+    status: VERIFIED
+    notes: "e2e run (Linux binary, real XboxGames data, scratch copy of the real shortcuts.vdf) exercised the full flow: scan, accept-defaults prompts, dry-run, real write, backup creation, grid file placement, state update, before the CLI binary was removed per the user's ONLY-ship-the-GUI request. driver::cli_driver itself stays in the tree, unit tested, just not built into an exe anymore."
+  - id: T9
+    title: FOLLOWUP.md at workspace root
+    status: IMPLEMENTED
+    notes: "kept up to date through implementation; final confirmation still needs the user's real supervised run"
+  - id: T10
+    title: "gui_driver + GameSync.exe (eframe/egui windowed app, poe-wayfinder-style) — sole shipped binary"
+    status: IMPLEMENTED
+    notes: "Setup/Reviewing/Done screens over the same DefaultImportController the CLI driver used. Cross-compiles clean for x86_64-pc-windows-gnu as GameSync.exe (Cargo.toml [[bin]] name = \"GameSync\"), confirmed as a real GUI-subsystem PE32+ binary (file(1) reports 'MS Windows 5.02 (GUI)', not console), clippy-clean on the windows target via lint-windows. The old CLI bin (gamesync.exe) was deleted along with its forge stages so GameSync.exe is the only thing built. NOT yet clicked through on an actual Windows desktop - needs the user, and Windows Smart App Control may block the unsigned exe (see FOLLOWUP.md, no code fix exists - researched against poe-wayfinder, which hits the identical problem and has no solution beyond retrying)."
